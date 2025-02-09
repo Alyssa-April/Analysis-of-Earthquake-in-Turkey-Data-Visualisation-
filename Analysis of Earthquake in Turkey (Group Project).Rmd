@@ -1,0 +1,853 @@
+---
+title: "Analysis of Earthquake in Turkey"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+---
+
+Introduction {.storyboard}
+========================================
+
+### Introduction
+
+![Map of Turkey](turkeymap.jpg)
+
+***
+#### Why Study Earthquakes? 
+
+Earthquake is a disaster known as violent shakes due to the movement between tectonic plates in the earth's crust. [(World Health Organization n.d.)]( https://www.who.int/health-topics/earthquakes#tab=tab_1).
+
+Turkey is listed as one of the top ten countries that experiences earthquakes regularly due to its location that is close to the major fault lines [(WorldAtlas n.d.)]( https://www.worldatlas.com/articles/the-world-s-10-most-earthquake-prone-countries.html). 
+
+Understanding the nature of earthquakes in Turkey is important to scientists, policy makers and people in the country itself, in order for them to be prepared and thus make the right policies that can benefit the people.
+
+Due to this, studies about earthquakes in general have a lot of benefits such as:
+
+1. Risk Assessment: Effective risk assessment and preparedness could be enhanced, which can help to mitigate the earthquake’s effects.
+2. Structural Engineering and Structural Design: Due to frequent earthquakes in certain regions, this research could contribute to the development of resilience structures that could withstand the violent shakes from earthquakes.
+3. Scientific Research: Investigation and research on earthquakes could help to identify patterns and improve understanding on the earthquakes. This can increase the accuracy of forecasting and prediction models.
+4. Communication: Studies on earthquakes could help in raising awareness, preparedness and educate the community on preparation and safety measures, so that casualties can be reduced.
+
+Through this study, not only Turkey, but countries all around the world can improve their technologies, become more knowledgeable about earthquakes and help to mitigate risks, as well as enhance to more efficient disaster management strategies.
+
+### Turkey Earthquakes (1915-2021) Data Set
+
+```{r echo = FALSE}
+library(DT)
+
+# create a data frame for the table describing the data set
+dataset_table <- data.frame(
+  Variable = c("No", "Deprem.Kodu", "Olus.tarihi", "Olus.zamani", "Enlem",
+               "Boylam", "Derinlik", "xM", "MD", "ML", "Mw", "Ms", "Mb",
+               "Tip", "Yer"),
+  Description = c("Row number for each earthquake event",
+                  "Code assigned to each earthquake event",
+                  "Date of earthquake event",
+                  "Time of earthquake event",
+                  "Latitude coordinate of the earthquake's location",
+                  "Longitude coordinate of the earthquake's location",
+                  "Depth of the earthquake event in kilometers. It is essentially the distance between the earthquake's epicentre and the Earth's surface.",
+                  "Biggest magnitude value in specified magnitude type values (MD, ML, Mw, Ms and Mb)",
+                  "Magnitude of the earthquake that is computed using the duration magnitude scale.",
+                  "Magnitude of the earthquake that is computed using the local magnitude scale.",
+                  "Magnitude of the earthquake that is computed using the moment magnitude scale.",
+                  "Magnitude of the earthquake that is computed using the surface wave magnitude scale.",
+                  "Magnitude of the earthquake that is computed using the body-wave magnitude scale.",
+                  'Clasification of the earthquake event, namely earthquake (Ke) or suspected explosion (Sm). All the instances are of type "Ke".',
+                  "The location or nearest settlement of the earthquake event.")
+)
+
+# create the table
+datatable(dataset_table)
+```
+
+
+***
+
+The “Turkey Earthquakes (1915-2021)” data set utilised in this study was obtained from Kaggle, in which it comprises of all the earthquakes with a magnitude greater than 3.5 that took place in Turkey and nearest areas from 1915 to January 2021. 
+
+The main source of the data is from the Kandilli Observatory and Earthquake Research Institute (KOERI), which specialises in the research of earthquakes. 
+
+The data set contains 15 variables, as explained in the table below. However, not all of the variables are utilised in this study, as they are chosen according to the analysis to be carried out. 
+
+
+
+### Objectives
+
+This study has three main objectives as follows:
+
+1. To identify the trend of earthquake frequency, average magnitude, average depth and correlation between earthquake frequency and average of magnitude.
+2. To determine the earthquake occurrences, spatial distribution, and temporal patterns in different cities. 
+3. To comprehend the nature of earthquake magnitudes by exploring and contrasting magnitude types in order to learn more about their features, variability and interconnections.
+
+
+```{r include=FALSE}
+library(plotly)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(gganimate)
+library(leaflet)
+
+
+data=read.table("C:/Users/User/Desktop/turkey_earthquakes(1915-2021).csv",sep=";",header=TRUE)
+head(data)
+newcolnames <- c("No", "Occ_Code", "Occ_Date", "Occ_Time", "Lat", "Lon", 
+                 "Depth(km)", "Max_value", "MD", "ML", "MW", "Ms", "Mb", "Type", "Location")
+colnames(data) <- newcolnames
+
+# Convert Occ_Date column to Date format
+data$Occ_Date <- as.Date(data$Occ_Date, format = "%Y.%m.%d")
+
+# Create a new variable for year
+data$Year <- format(data$Occ_Date, "%Y")
+data$Year <- as.numeric(data$Year)
+
+# Calculate the frequency of occurrences by year
+yearfreq <- table(data$Year)
+
+# Create a new data frame with year and frequency columns
+timeline <- data.frame(Year = names(yearfreq), Freq = as.numeric(yearfreq))
+timeline$Year <- as.numeric(timeline$Year)
+
+interactive <- data %>% 
+  group_by(Year) %>% 
+  summarize(Frequency = n(), Average_Magnitude = mean(Max_value, na.rm = TRUE))
+
+str(interactive)
+
+avgdepth<- data %>% 
+  group_by(Year) %>% 
+  summarize(Frequency = n(), Average_Depth = mean(`Depth(km)`, na.rm = TRUE))
+
+merged_data <- merge(interactive, avgdepth, by = "Year")
+
+correlation <- cor(interactive$Frequency, interactive$Average_Magnitude)
+
+
+```
+
+
+
+Objective 1 {.storyboard}
+========================================
+
+### Plot 1
+```{r}
+first<-ggplot(data = data) + 
+  geom_bar(aes(x=Year), colour = "skyblue", fill = "lightblue") + 
+  transition_states(Year) + 
+  shadow_mark() + 
+  labs(title = "Earthquake Frequency by Year: {closest_state}")
+gganimate::animate(first, fps = 2, width = 1400, height = 900, 
+                   renderer = gifski_renderer(), res = 200, type = "cairo")
+```
+
+***
+
+Bar plot has been used to identify the trend of frequency of earthquake over time. Based on the plot:
+
+-	13 events of earthquakes that have frequency that ranged from 1-9
+
+-	Highest frequency was in 2020 with 934 events recorded.
+
+-	6 events of earthquakes that have frequency more than 500 which was in year 1999, 2005, 2011, 2012, 2017, and 2020.
+
+
+### Plot 2
+```{r}
+ggplot(merged_data, aes(x = Year)) +
+  geom_area(aes(y = Average_Magnitude, fill = "Average Magnitude"), color = "lightgreen") +
+  geom_area(aes(y = Average_Depth / 10, fill = "Average Depth (Km)"), color = "navy") +
+  labs(x = "Year", y = "Average Magnitude") +
+  scale_fill_manual(values = c("navy", "lightgreen"),
+                    labels = c("Average Depth (Km)", "Average Magnitude"),
+                    name = "Average vs Time") +
+  scale_y_continuous(sec.axis = sec_axis(~ . * 10, name = "Average Depth (Km)")) +
+  theme(legend.position = "top")
+```
+
+***
+
+Area plot has been used to identify the trend of average magnitude and average depth of earthquake over time. Based on the plot:
+
+-	The highest average magnitude was in 1942, where the average magnitude was approximately 5.65 with an average depth of 26.13km.
+
+-	The lowest average magnitude occurred in 2009, with a magnitude of 3.72 and a depth of 14.09km.
+
+-	The light earthquake intensity where the magnitude is less than or equal to 4.9 spans from 1960 to 2021, displaying a range of average magnitudes from 4.45 to 4.83 and depths from 19.20 to 45.11 km.
+
+-	The moderate earthquake intensity with magnitudes greater than 4.9 and less than or equal to 5.9 covers years from 1915 to 1963, exhibiting average magnitudes from 4.92 to 5.65 and depths from 9.33km to 62.50km.
+
+### Plot 3
+```{r}
+plot_ly(data = interactive, x = ~Frequency, y = ~Average_Magnitude) %>% 
+  add_markers(color = ~Average_Magnitude, colors = c("green", "blue", "red")) %>% layout(
+  annotations = list(
+    x = 500, y = 4.5,
+    text = paste("Correlation:", round(correlation, 2)),
+    showarrow = FALSE), yaxis = list(title = "Average Magnitude"),
+    legend = list(title = "Average Magnitude"))
+```
+
+***
+
+Scatter plot has been used to identify relationship between frequency and average magnitude of the earthquake. Based on the plot:
+
+-	The correlation coefficient between the frequency and average magnitude of earthquakes is -0.7805606, indicating a negative correlation.
+
+-	As the frequency of earthquakes increases, the average magnitude tends to decrease, and vice versa. This has been supported by previous study as well.
+
+```{r include = F}
+# import data
+data <- read.csv("C:/Users/User/Desktop/turkey_earthquakes(1915-2021).csv", header = T, strip.white = T, encoding = "UTF-8", sep = ";")
+head(data)
+summary(data) # NA at Mw variable # no need to remove because will cause loss of information
+
+# extract the information in Yer variable
+library(stringr)
+data$initial_area <- str_extract(data$Yer, "^[^-()]+")  # area before -
+data$last_area <- str_extract(data$Yer, "(?<=- ).*(?= \\()")  # area after - but before ()
+data$location <- str_extract(data$Yer, "(?<=\\()[^\\[\\]]+(?=\\))")  # area in () 
+data$direction <- str_extract(data$Yer, "(?<=\\[?)[a-zA-Z ]+(?=\\s*\\d+\\.?\\d* km\\]?)") # character before the number in []
+data$distance <- as.numeric(str_extract(data$Yer, "\\d+\\.?\\d*")) # numeric in []
+data$last_area[is.na(data$last_area)] <- data$initial_area[is.na(data$last_area)]  # fill the NA in last_area with initial_area
+data$location[is.na(data$location)] <- data$initial_area[is.na(data$location)]  # fill the NA in location with initial_area
+data$location <- gsub("\\[.*?\\]", "", data$location)  # remove the punctuation from location
+if (is.na(data$initial_area[5022]) && is.na(data$last_area[5022])) { 
+  # fill the NA with AKDENIZ for row 5022
+  data$initial_area[5022] <- "AKDENIZ"
+  data$last_area[5022] <- "AKDENIZ"
+  data$location[5022] <- "AKDENIZ"
+}
+
+# uppercase the initial_area, last_area, and location variables to standardise the observations
+data$initial_area <- toupper(data$initial_area)
+data$last_area <- toupper(data$last_area)
+data$location <- toupper(data$location)
+
+# check for the special character in location variable (this variable will be used heavily)
+sort(unique(data$location))
+# change the special character in the location variable into a readable symbol
+data$location <- iconv(data$location, "UTF-8", "ASCII//TRANSLIT")
+# start changing (trim white spaces, fill the special character, and correct the location name for certain area)
+data$location <- str_replace(data$location, "ADANA ", "ADANA")
+data$location <- str_replace(data$location, "\\?ANAKKALE", "CANAKKALE")
+data$location <- str_replace(data$location, "\\?ANKIRI", "ANKARA")
+data$location <- str_replace(data$location, "ARDAHAN ", "ARDAHAN")
+data$location <- str_replace(data$location, "BALIKESIR ", "BALIKESIR")
+data$location <- str_replace(data$location, "BURDUR ", "BURDUR")
+data$location <- str_replace(data$location, "AMASYA ", "AMASYA")
+data$location <- str_replace(data$location, "\\?ORUM", "CORUM")
+data$location <- str_replace(data$location, "DENIZLI ", "DENIZLI")
+data$location <- str_replace(data$location, "ERZINCAN ", "ERZINCAN")
+data$location <- str_replace(data$location, "ERZURUM ", "ERZURUM")
+data$location <- str_replace(data$location, "G\\?RCISTAN", "GURCISTAN")
+data$location <- str_replace(data$location, "K\\?TAHYA", "KUTAHYA")
+data$location <- str_replace(data$location, "KARAB\\?K", "KARABUK")
+data$location <- str_replace(data$location, "KIBRIS RUM KESIMI", "KIBRIS")
+data$location <- str_replace(data$location, "KIRSEHIR ", "KIRSEHIR")
+data$location <- str_replace(data$location, "KOCAELI ", "KOCAELI")
+data$location <- str_replace(data$location, "KONYA ", "KONYA")
+data$location <- str_replace(data$location, "KUS G\\?L\\?", "KUS GOLU")
+data$location <- str_replace(data$location, "KUS GOLU", "BALIKESIR")
+data$location <- str_replace(data$location, "MANISA ", "MANISA")
+data$location <- str_replace(data$location, "T\\?RKIYE", "TURKIYE")
+data$location <- str_replace(data$location, "TOKAT ", "TOKAT")
+data$location <- str_replace(data$location, "ULUBAT G\\?L\\?", "BURSA")
+data$location <- str_replace(data$location, "VAN G\\?L\\?", "VAN")
+data$location <- str_replace(data$location, "VAN GOLU", "VAN")
+
+# extract the variables that will be highly used
+data <- subset(data, select = c(Olus.tarihi, Enlem, Boylam, Derinlik, xM, location, direction, distance))
+head(data)
+```
+
+
+Objective 2 {.storyboard}
+========================================
+
+### Plot 1
+```{r}
+# first plot
+# To visualise the frequency of earthquake locations using wordcloud
+library(wordcloud)
+library(RColorBrewer)
+freq_location <- table(data$location)
+wordcloud(names(freq_location), freq_location, random.order = F, 
+          colors = brewer.pal(8, "Dark2"))
+```
+
+***
+
+The word cloud visualises the earthquake frequencies in different locations of Turkey and its neighbouring countries.
+
+- The larger the word, the higher the frequency of earthquakes in that location.
+
+- Out of the 95 locations in the dataset, nine places are outside of Turkey, including Ege Denizi (Aegean Sea), Suriye (Syria), Gurcistan (Georgia), Irak (Iraq), Iran, Ermenistan (Armenia), Kibris (Cyprus), and Azerbaycan (Azerbaijan). The remaining locations belong to Turkey. 
+
+- Earthquakes occur more frequently in Akdeniz, Manisa, Mugla, Van, Kuthaya, Kahramanmaras, Denizi, Elazig, Burdur, Ankara, Bingol, Balikesir, Malatya, Izmir, Erzurum, and Canakkale. 
+
+- Akdeniz has the highest earthquake frequency.
+
+- Akdeniz is the coastal region along the Mediterranean Sea in Turkey [(Kurtulus et al. 2018)](https://dx.doi.org/10.20469/ijaps.4.50003-3). 
+- This region experiences a high frequency of earthquakes due to its location in a seismically active zone [(Kurtulus et al. 2018)](https://dx.doi.org/10.20469/ijaps.4.50003-3). 
+- This area exhibits complex tectonic behaviour influenced by the faults of the Dead Sea, Eastern Anatolia, and Cyprus [(Kurtulus et al. 2018)](https://dx.doi.org/10.20469/ijaps.4.50003-3).
+
+- Ege Denizi (Aegean Sea) is the second-highest earthquake frequency. 
+
+- The most recent earthquake occurred in the Aegean Sea is on 30 October 2020 [(Cetin et al. 2022)](https://doi.org/10.1007/s10518-021-01212-y). 
+- This earthquake produced a tsunami and resulted in 118 fatalities [(Cetin et al. 2022)](https://doi.org/10.1007/s10518-021-01212-y).
+
+
+
+### Overview of Magnitude
+
+- The word cloud does not provide information about the magnitudes of the earthquakes. 
+
+- However, Turkey and its neighbouring countries are situated in seismically active regions, where earthquakes of various magnitudes can occur. 
+
+- Therefore, it is crucial to visualise the earthquake clusters based on their magnitudes to gain a more comprehensive understanding of the seismic activity.
+
+- The magnitude of an earthquake is measured on the Richter magnitude scale, which is a logarithmic scale used to gauge the amplitude of seismic waves generated by the earthquake. 
+
+- Here are the categories of earthquakes based on their magnitudes [(The Associated Press 2012)](https://www.cbc.ca/news/world/richter-magnitude-scale-explained-1.1130841#:~:text=The%20Richter%20scale%2C%20developed%20by,the%20magnitude%20of%20the%20earthquake.):
+
+- Minor Earthquakes (Magnitude 0-2.5): Generally not felt but recorded.
+- Light Earthquakes (Magnitude 2.5-5.4): Often felt by people but rarely causes significant damage.
+- Moderate Earthquakes (Magnitude 5.5-6.0): Can cause significant damage to buildings.
+- Strong Earthquakes (Magnitude 6.1-6.9): Can cause significant damage in populated areas.
+- Major Earthquakes (Magnitude 7-7.9): Can cause widespread damage over larger regions.
+- Great Earthquakes (Magnitude 8 or greater): Can cause severe damage to communities.
+
+
+
+### Plot 2
+```{r}
+# second plot
+# To create an interactive map with clustering
+library(leaflet)
+library(tidyverse)
+
+popup_content <- paste(data$location, "<br>", data$xM)
+qpal <- colorNumeric("YlOrRd", data$xM)
+leaflet(data = data) %>% 
+  addTiles() %>% 
+  addCircleMarkers(lat = ~Enlem, lng = ~Boylam, weight = 30, 
+                   radius = ~xM * 2, popup = ~popup_content, 
+                   color = ~qpal(xM), fillOpacity = 30, 
+                   clusterOptions = markerClusterOptions()) %>% 
+  addLegend("bottomright", pal = qpal, values = ~xM, 
+            title = "Magnitude", opacity = 30)
+```
+
+***
+
+The earthquake clusters are visualised through an interactive map. 
+
+- Three earthquake clusters. 
+
+- The left circle has the greatest number of earthquake events.
+
+- Located on the Eurasian plate, the African plate, the Aegean Sea plate, and the North Anatolian Fault Line (NAF) [(Earthquake Hazards Program 2023)](https://www.usgs.gov/programs/earthquake-hazards/news/new-interactive-geonarrative-explains-2023-turkey-earthquake). 
+- The movement between the Eurasian and African plates is against each other, exerting pressure on each other [(Demirci 2023)](https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/).
+- The NAF line is one of the fastest-moving and most active right-lateral strike faults in the world [(Demirci 2023)](https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/). 
+
+- It is 1400 km long and runs from the east of Turkey to the west of Turkey and ends at the Aegean Sea [(Comfort et al. 2023)](https://www.preventionweb.net/news/earthquake-turkey-exposes-gap-between-seismic-knowledge-and-action-it-possible-prepare#:~:text=The%20North%20Anatolian%20Fault%2C%20870,industrialized%20section%20of%20the%20country.). 
+- Provinces and cities included Gallipoli, Marmara Sea, the Gulf of Izmit, Adapazarı, Duzce-Bolu, Gerede, Merzifon, Suluova and Erbaa, Niksar, Kelkit Valley, Erzincan, Erzurum, Varto, Van, Canakkale, Edremit, Bursa and Iznik [(Demirci 2023)](https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/).
+
+- The central circle has the least earthquake events, with a 988 number of earthquake events. 
+
+- The locations within this cluster are still in close proximity to the fault line and the Eurasian plate [(Earthquake Hazards Program 2023)](https://www.usgs.gov/programs/earthquake-hazards/news/new-interactive-geonarrative-explains-2023-turkey-earthquake). 
+
+- The right circle recorded 6992 earthquake events. 
+
+- Located on the Eurasian plate, the Arabian plate, and the East Anatolian Fault Line (EAF) [(Earthquake Hazards Program 2023)](https://www.usgs.gov/programs/earthquake-hazards/news/new-interactive-geonarrative-explains-2023-turkey-earthquake). 
+- The opposing movements of the Eurasian and Arabian plates create intense stress, increasing the likelihood of earthquakes [(Demirci 2023)](https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/). 
+- The EAF, a strike-slip fault line located in eastern Turkey, further contributes to seismic activity [(Demirci 2023)](https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/). 
+
+- Approximately 1000 km long and runs diagonally across Hatay, Osmaniye, Gaziantep, Kahramanmaras, Adiyaman, Elazıg, Bingol, Mus, Erzincan, and to the NorthAnatolian Fault Line [(Comfort et al. 2023 and Demirci 2023)](https://www.preventionweb.net/news/earthquake-turkey-exposes-gap-between-seismic-knowledge-and-action-it-possible-prepare#:~:text=The%20North%20Anatolian%20Fault%2C%20870,industrialized%20section%20of%20the%20country., https://expatguideturkey.com/where-is-the-north-anatolian-fault-line-cities-with-high-earthquake-risk/).
+
+
+
+### Plot 2a
+```{r, cache = T, echo = F}
+# Top 30 cities with the largest magnitude (xM)
+top30_cities <- data[order(-data$xM), ]
+top30_cities <- top30_cities[1:30,]
+top30_cities <- top30_cities[, c("Enlem", "Boylam", "xM", "location")]
+
+popup_content <- paste(top30_cities$location, "<br>", top30_cities$xM)
+qpal <- colorNumeric("YlOrRd", top30_cities$xM)
+leaflet(data = top30_cities) %>% 
+  addTiles() %>% 
+  addCircles(lat = ~Enlem, lng = ~Boylam, weight = 30, 
+             radius = 3000, popup = ~popup_content, 
+             color = ~qpal(xM), fillOpacity = 30) %>% 
+  addLegend("bottomright", pal = qpal, values = ~xM, 
+            title = "Magnitude", opacity = 30)
+```
+
+***
+
+The interactive map visualises the selected top 30 earthquakes based on magnitude, with the colour of the circles representing the magnitude. 
+
+-The darkest-coloured circle indicates the largest earthquake magnitude recorded in Turkey, measuring 7.9 on the Richter scale, which occurred in Erzincan. 
+
+-The second-greatest magnitude, measuring 7.7, is occurred in Gaziantep and Akdeniz. 
+
+- The difference of 0.2 in magnitude between 7.9 and 7.7 has released approximately 1.995 times more energy. 
+
+-The third-greatest magnitude in Turkey is 7.6, recorded in Kahramanmaras and Turkiye. 
+
+- The difference of 0.1 in magnitude between 7.7 and 7.6 has released approximately 1.412 times more energy. 
+
+
+
+### Plot 3
+```{r}
+# Third plot
+# Top 10 earthquake city due to magnitude by year
+library(gganimate)
+library(gifski)
+library(ggplot2)
+
+data$Olus.tarihi <- as.Date(data$Olus.tarihi, format = "%Y.%m.%d")
+data$Month <- format(data$Olus.tarihi, "%m")
+data$Year <- format(data$Olus.tarihi, "%Y")
+max_magnitude <- data %>% group_by(Month, Year, location) %>% summarize(count = n(), xM = max(xM)) %>% ungroup()
+max_magnitude$Year <- as.integer(max_magnitude$Year, format = "%Y")
+
+N <- 10  
+top_locations <- max_magnitude %>%
+  group_by(location) %>%
+  summarise(total_count = sum(count)) %>%
+  top_n(N, total_count) %>%
+  select(location)
+
+filtered_data <- max_magnitude %>%
+  filter(location %in% top_locations$location)
+
+gif_scatter <- ggplot(filtered_data, aes(x = Month, y = xM, color = location, size = count)) +
+  geom_point() +
+  scale_size_continuous(range = c(1, 10)) +
+  transition_time(Year) +
+  labs(x = "Month", y = "Magnitude", title = "Year: {frame_time}") +
+  theme_bw()
+gganimate::animate(gif_scatter, fps = 1, width = 1400, height = 1000, renderer = gifski_renderer(), res = 200, type = "cairo")
+```
+
+***
+
+The gif animated scatterplot visualises the distribution of the earthquakes based on magnitude over time for the top 10 locations. 
+-The top 10 locations are Akdeniz, Denizli, Ege Denizi, Izmir, Kahramanmaras, Kuthaya, Malatya, Manisa, Mugla, and Van. 
+
+- In 1926, Akdeniz experienced a powerful earthquake with a magnitude of 7.7. 
+- In 1948 and 1957, Akdeniz measured two earthquakes with magnitudes 7.2 and 7.1 respectively. 
+- In 1970, Kuthaya registered a magnitude of 7.0. 
+- In 1976, Van encountered a strong earthquake with a magnitude of 7.5. 
+- In 2011, Van experienced another earthquake with a magnitude of 7.2. 
+- In February 2023, Kahramanmaras experienced a earthquake with a magnitude of 7.6. 
+
+- Death toll surpassing 50000 people, particularly 45968 confirmed deaths in Turkey and 7259 confirmed deaths in Syria [(ReliefWeb 2023)](https://reliefweb.int/report/syrian-arab-republic/syriaturkey-earthquakes-situation-report-7-march-8-2023).
+
+-Once an earthquake of at least 7.0 magnitude occurs, the subsequent earthquake events exhibit reduced magnitudes below 6. 
+
+-This decline in magnitude signifies the release of stored energy from the previous seismic event.
+
+
+
+
+```{r include = F}
+# Download the necessary packages
+library(ggplot2)
+library(psych) # to use corr.test in computing the significance level
+library(reshape2) # to use the melt function
+library(gganimate)
+library(dplyr)
+library(tidyr)
+library(transformr)
+library(shiny)
+library(plotly)
+library(flexdashboard)
+
+# read in the data
+data <- read.table("C:/Users/User/Desktop/turkey_earthquakes(1915-2021).csv",
+                   sep=";",header=TRUE)
+
+# extract the information in Yer variable
+library(stringr)
+data$initial_area <- str_extract(data$Yer, "^[^-()]+")  # area before -
+data$last_area <- str_extract(data$Yer, "(?<=- ).*(?= \\()")  # area after - but before ()
+data$city <- str_extract(data$Yer, "(?<=\\()[^\\[\\]]+(?=\\))")  # area in () 
+data$direction <- str_extract(data$Yer, "(?<=\\[?)[a-zA-Z ]+(?=\\s*\\d+\\.?\\d* km\\]?)") # character before the number in []
+data$distance <- as.numeric(str_extract(data$Yer, "\\d+\\.?\\d*")) # numeric in []
+data$last_area[is.na(data$last_area)] <- data$initial_area[is.na(data$last_area)]  # fill the NA in last_area with initial_area
+data$city[is.na(data$city)] <- data$initial_area[is.na(data$city)]  # fill the NA in city with initial_area
+data$city <- gsub("\\[.*?\\]", "", data$city)  # remove the punctuation from city
+if (is.na(data$initial_area[5022]) && is.na(data$last_area[5022])) { 
+  # fill the NA with AKDENIZ for row 5022
+  data$initial_area[5022] <- "AKDENIZ"
+  data$last_area[5022] <- "AKDENIZ"
+  data$city[5022] <- "AKDENIZ"
+}
+
+# uppercase the initial_area, last_area, and city variables to standardise the observations
+data$initial_area <- toupper(data$initial_area)
+data$last_area <- toupper(data$last_area)
+data$city <- toupper(data$city)
+
+# check for the special character in city variable (this variable will be used heavily)
+sort(unique(data$city))
+# change the special character in the city variable into a readable symbol
+data$city <- iconv(data$city, "UTF-8", "ASCII//TRANSLIT")
+# start changing (trim white spaces, fill the special character, and correct the city name for certain area)
+data$city <- str_replace(data$city, "ADANA ", "ADANA")
+data$city <- str_replace(data$city, "\\?ANAKKALE", "CANAKKALE")
+data$city <- str_replace(data$city, "\\?ANKIRI", "ANKARA")
+data$city <- str_replace(data$city, "ARDAHAN ", "ARDAHAN")
+data$city <- str_replace(data$city, "BALIKESIR ", "BALIKESIR")
+data$city <- str_replace(data$city, "BURDUR ", "BURDUR")
+data$city <- str_replace(data$city, "AMASYA ", "AMASYA")
+data$city <- str_replace(data$city, "\\?ORUM", "CORUM")
+data$city <- str_replace(data$city, "DENIZLI ", "DENIZLI")
+data$city <- str_replace(data$city, "ERZINCAN ", "ERZINCAN")
+data$city <- str_replace(data$city, "ERZURUM ", "ERZURUM")
+data$city <- str_replace(data$city, "G\\?RCISTAN", "GURCISTAN")
+data$city <- str_replace(data$city, "K\\?TAHYA", "KUTAHYA")
+data$city <- str_replace(data$city, "KARAB\\?K", "KARABUK")
+data$city <- str_replace(data$city, "KIBRIS RUM KESIMI", "KIBRIS")
+data$city <- str_replace(data$city, "KIRSEHIR ", "KIRSEHIR")
+data$city <- str_replace(data$city, "KOCAELI ", "KOCAELI")
+data$city <- str_replace(data$city, "KONYA ", "KONYA")
+data$city <- str_replace(data$city, "KUS G\\?L\\?", "KUS GOLU")
+data$city <- str_replace(data$city, "KUS GOLU", "BALIKESIR")
+data$city <- str_replace(data$city, "MANISA ", "MANISA")
+data$city <- str_replace(data$city, "T\\?RKIYE", "TURKIYE")
+data$city <- str_replace(data$city, "TOKAT ", "TOKAT")
+data$city <- str_replace(data$city, "ULUBAT G\\?L\\?", "BURSA")
+data$city <- str_replace(data$city, "VAN G\\?L\\?", "VAN")
+data$city <- str_replace(data$city, "VAN GOLU", "VAN")
+
+# convert the city names from upper case to title case
+data$city <- str_to_title(data$city)
+
+#_______________________________________________________________________________
+
+### Missing Values: 
+
+# obtain all 5 magnitude types
+mag_all_type <- data[, c('MD', 'ML', 'Mw', 'Ms', 'Mb')]
+
+# get the sum of each column for non-NA values
+not_NA <- as.integer(colSums(!is.na(mag_all_type)))
+
+# create a data frame with two columns 
+non_NA_df <- data.frame(mag_type = names(mag_all_type), number_of_non_NA = not_NA)
+
+# compute the percentage of non-NA values
+non_NA_df$percentage <- round((non_NA_df$number_of_non_NA/nrow(data))*100, 2)
+
+#_______________________________________________________________________________
+
+### Static Plot: Correlogram of Magnitude Types 
+
+# get the four magnitude types (excluding Mw)
+mag_type <- data[, c('MD', 'ML', 'Ms', 'Mb')]
+
+# compute the correlations between the four magnitude types
+cor_mat <- cor(mag_type)
+
+# organise the data in a long data frame format to make it easier for plotting
+cor_long <- melt(cor_mat)
+
+# Compute the correlation coefficient values and round it to 4 decimal places.
+# These values will be displayed in the heatmap using geom_text().
+cor_long$value <- round(cor_long$value, 4)
+# Compute p-values to check whether the correlation between variables are
+# significant or not.
+cor_long$p_value <- melt(corr.test(mag_type)$p)$value
+
+
+#_______________________________________________________________________________
+
+### Animated Gif: Line Graph of Magnitude Types Over Time By Month
+
+# get the magnitude types and date columns
+mag_time_data <- data[, c('Olus.tarihi', 'MD', 'ML', 'Ms', 'Mb')]
+# convert the date column to date type
+mag_time_data$Olus.tarihi <- as.Date(mag_time_data$Olus.tarihi, format = "%Y.%m.%d")
+# get only the year and save as Year
+mag_time_data$Year <- format(mag_time_data$Olus.tarihi, format = "%Y")
+# get only the month and save as Month
+mag_time_data$Month <- format(mag_time_data$Olus.tarihi, format = "%m")
+
+# group the data frame by Year and Month, then find the average of all magnitude
+# types according to group
+mag_time_data <- mag_time_data %>%
+  group_by(Year, Month) %>%
+  summarise(across(MD:Mb, mean))
+
+# Organise the data in a long data frame format.
+# Rename the magnitude types as mag_type and their values as avg_mag.
+mag_time_data <- mag_time_data %>%
+  pivot_longer(cols = MD:Mb, names_to = "mag_type", values_to = "avg_mag")
+
+# convert Year to date type once again
+mag_time_data$Year <- as.Date(mag_time_data$Year, format = "%Y")
+
+# list of months to change the titles of the facet plots
+months <- list(
+  '01'="January",
+  '02'="February",
+  '03'="March",
+  '04'="April",
+  '05'="May",
+  '06'="June",
+  '07'="July",
+  '08'="August",
+  '09'="September",
+  '10'="October",
+  '11'="November",
+  '12'="December"
+)
+
+# function for custom labeller for the facet labels in the plot
+month_labeller <- function(variable, value){
+  return(months[value])
+}
+
+
+gif <- ggplot(mag_time_data, aes(x = Year, y = avg_mag, group = mag_type, 
+                                 color = mag_type)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "Average Magnitude", 
+       color = "Magnitude Type", 
+       title = "Average Magnitude for Each Magnitude Type By Month Over the Years") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "top", 
+        legend.box.background = element_rect(colour = "black")) +
+  # create facets and relabel their titles
+  facet_wrap(~Month, labeller= month_labeller) + 
+  transition_reveal(Year)
+
+#_______________________________________________________________________________
+
+### Interactive Plot: Scatter Plot of Magnitude Against Depth According to Magnitude Type
+
+# get the relevant columns
+mag_depth_data <- data[, c('Derinlik', 'Olus.tarihi', 'city', 'MD', 'ML', 'Ms', 'Mb')]
+
+# convert to long format
+mag_depth_data <- mag_depth_data %>%
+  pivot_longer(cols = MD:Mb, names_to = "mag_type", values_to = "mag_value")
+
+# convert the date column to date type
+mag_depth_data$Olus.tarihi <- as.Date(mag_depth_data$Olus.tarihi, format = "%Y.%m.%d")
+# format date according to needs
+mag_depth_data$Olus.tarihi <- format(mag_depth_data$Olus.tarihi, format = "%d %B %Y")  
+```
+
+
+Objective 3 {.storyboard}
+========================================
+
+### Introduction to Magnitude Types
+
+#### Earthquake Magnitude
+
+- Defined as the size of earthquakes represented by seismic moment.
+- Seismic activities or earthquake vibrations are recorded using seismographs in seismograph stations.  
+- The most popular magnitude scale is essentially the Richter scale [(United States Geological Survey n.d.)](https://www.usgs.gov/faqs/moment-magnitude-richter-scale-what-are-different-magnitude-scales-and-why-are-there-so-many), also known as Richter Magnitude or ML [(Richter 1935)](https://authors.library.caltech.edu/47921/1/1.full%20%281%29.pdf), local magnitude. It measures the amplitude of seismic waves recorded at a local distance from the earthquake source.
+
+#### Why are there so many magnitude scales?
+
+- The Richter scale is only completely applicable within specific ranges of frequency and distance. 
+- Newly developed magnitude scales became available, all equivalent to the Richter magnitude. 
+
+#### Different Magnitude Types
+
+- Body-wave magnitude, Mb [(Gutenberg 1945a)](https://authors.library.caltech.edu/47713/1/57.full.pdf)[(Gutenberg 1945b)](https://authors.library.caltech.edu/47727/1/117.full.pdf), is derived from the amplitude and period of body waves, which are the fastest types of waves that can travel through the layers of the earth, generally around 5.5 to 7.0 Richter magnitude [(United States Geological Survey n.d.)](https://www.usgs.gov/programs/earthquake-hazards/magnitude-types). 
+- Surface wave magnitude, Ms [(Gutenberg 1945a)](https://authors.library.caltech.edu/47713/1/57.full.pdf), is derived from the amplitude and period of surface waves, where they can only travel on the surface of the earth like ripples on water, with 5 to 8.5 Richter magnitude.
+- Duration magnitude, MD (proposed by Bisztricsany in 1958), of an earthquake is a measurement of how long the seismic signal lasts, typically useful to measure the size of earthquakes that shake for a long time. 
+- Moment magnitude, Mw [(Kanamori 1977)](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/JB082i020p02981)[(Hanks and Kanamori 1979)](https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/JB084iB05p02348), was developed, particularly reliable for very large earthquakes.
+
+![Normal Fault](faulting.png)
+
+![Body-wave and Surface Magnitudes](bodyvssurfacewave.png) 
+
+### Limitation of the Data set
+```{r}
+# plot a bar chart to show the number of values available for each of the 
+# 5 magnitude types (non-missing values)
+ggplot(non_NA_df, aes(x = mag_type, y = number_of_non_NA)) + 
+  geom_bar(stat = "identity", fill = 'red', colour = "black") +
+  geom_text(aes(label = paste0(percentage, "%")), vjust = -0.5) +
+  labs(x = "Magnitude Type", y = "Number of Values Available",
+       title = "Percentage of Data Available for Each Magnitude Type") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+***
+
+- The moment magnitude, Mw, variable has many missing values.  
+- The other magnitude types are complete with all 17370 instances, but Mw only has 26.74% of its data available. 
+- Drop Mw and focus on the other four magnitude types. 
+
+### Plot 1
+```{r}
+# create the heatmap
+ggplot(cor_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(colour = "gray40") +
+  # set the limits from -1 to 1 because correlation coefficients can only 
+  # be within this range
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       limits = c(-1,1), name = "Correlation") + 
+  geom_text(aes(label = value), color = "black", size = 4) + # correlation values
+  geom_text(aes(label = ifelse(p_value < 0.05, "*", "")), color = "red", 
+            size = 7, vjust = -0.9) + # indication of significance level
+  labs(x = "Magnitude Types", y = "Magnitude Types", 
+       title = "Correlogram of Magnitude Types") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) # centre the title
+```
+
+***
+
+A correlogram of the magnitude types is simply a visual representation of the correlation matrix.  
+
+Non-significant correlation
+
+- Mb and MD
+- Correlation is also almost zero, showing no correlation between one another.
+- Indicates that different shaking durations may occur during earthquakes with identical body wave amplitudes. 
+
+Highest correlation
+
+- Mb and Ms, valued at 0.6192.
+- When an earthquake has a high magnitude according to Mb, perhaps it will most likely display high amplitudes for Ms. 
+- Does not imply a causal relationship, just that they have consistent patterns. 
+- This strong positive correlation could be due to the same fundamental aspects of the earthquake event influencing both magnitude estimating techniques, such as amount of energy released.
+
+Negative correlation
+
+- ML and MD, valued at -0.34.
+- Shorter shaking durations are more common in earthquakes with larger seismic wave amplitudes, usually waves at a particular station.
+
+These connections can help with further research and interpretation of the data, such as finding out what causes the correlations and what this means for estimating the size of earthquakes. 
+
+
+### Plot 2
+```{r}
+# create the animation with slower speed, bigger plot size and adjust
+# the resolution
+animate(gif, fps = 5, height = 9, width = 12, units = "in", res = 150)
+```
+
+***
+
+This line graph can reveal the temporal fluctuations in magnitude values for each magnitude type.
+
+Each month shows similar patterns of a downward trend. 
+
+- Seismic activity is a natural event that varies by increasing and decreasing over long periods of time.
+- Technological advancements cause instruments to become more sensitive and thus accurate in estimating magnitudes. 
+
+Extreme peaks and troughs
+
+- In the earlier years in April and September, the magnitude values except for duration are low.  
+- Peaks can be seen in January of the early years and July around the late 1950s. 
+- This shows how the earthquakes intensities vary over the long run. 
+- Sometimes there are not so many earthquakes happening and sometimes they occur with a big impact.
+
+Body-wave, local and surface wave magnitudes start to fluctuate tremendously in the 1980s.
+
+- Body-wave magnitude values are higher compared to the others at this point. Larger body-wave magnitudes may imply a stronger amplitude and energy release associated with the body waves. 
+- Duration magnitude is higher in the early 2000s. Higher duration magnitude values imply the occurrence of earthquakes in the early 2000s that have a longer duration of shaking.
+- The local magnitude values show an interesting and clear upward trend towards the end of the plot. Higher local magnitudes could portray stronger ground shaking at the local site, meaning a higher energy release by the earthquake or it could have happened closer to the station. 
+- Evolving seismic network and monitoring practices. 
+- The GEOSCOPE network and the Global Seismographic Network (GSN) were developed in the 1980s, where even vibrations as small as the size of an atom could be documented digitally [(Ringler 2022)](https://eos.org/editors-vox/global-seismic-networks-recording-the-heartbeat-of-the-earth).
+
+These scales all provide authorities with different insights in assessing the potential damage the seismic activities could bring.   
+
+### Plot 3
+
+```{r}
+# to enable users to select the type of magnitude that they want
+radioButtons("radio", h3("Select Magnitude Type:"), 
+             choices = unique(mag_depth_data$mag_type), selected = "Ms",
+             inline = TRUE)
+
+renderPlotly({
+  magnitude_data <- mag_depth_data[mag_depth_data$mag_type == input$radio,] 
+  
+  # create an interactive plot
+  plot_ly(data = magnitude_data, x = ~Derinlik, y = ~mag_value,
+                  color = 'red',
+                  hovertext = ~paste(unique(mag_type), "Value:", mag_value,
+                                   "<br>Depth (km):", Derinlik, "km",
+                                   "<br>Date:", Olus.tarihi,
+                                   "<br>Location:", city),
+                hoverinfo = "text",
+                type = "scatter", 
+                mode = "markers",
+                marker = list(
+                size = ~mag_value*0.8)) %>% 
+                layout(title = paste0("Magnitude Value (", unique(magnitude_data$mag_type), ") vs Depth (km)"),
+                       xaxis = list(title = "Depth (km)"),
+                       yaxis = list(title = paste0("Magnitude Value (", unique(magnitude_data$mag_type), ")")), 
+                       width = 600, height = 400, margin = list(l = 50, r = 10,
+                                                                b = 50, t = 50,
+                                                                pad = 2)) 
+})
+```
+
+***
+
+Depth is the distance from the location of the earth where the earthquake originates and the surface of the earth.
+
+As there are different types of earthquakes, namely shallow, intermediate or deep ones, relating them to the different magnitude types will provide the relevant authorities with insights on the energy release mechanisms, enabling them to further refine their models. 
+
+- All four plots show similar patterns, being clustered mostly around a depth of less than 50 km, with a magnitude of 3.5 to 5.  
+- The surface wave magnitude values however are a little higher, around 4 to nearly 6, with the biggest Ms value going as high as 7.9 with a depth of 20km on 26 December 1939 in Erzincan. 
+- This event also has high MD and ML value of 7.2, and MB value of 7.1. 
+- The earthquake that left 30000 people dead and damaged thousands of buildings is said to be one of the worst earthquakes to ever happen alongside the recent Turkey-Syria earthquake of 2023 [(Firstpost 2023)](https://www.firstpost.com/explainers/explained-turkey-quake-worst-since-1939-erzincan-temblor-a-look-back-at-what-happened-12113222.html). 
+- The slightly higher Ms values coincide with Plot 2 where even though the values have similar trend before the 1980s, the MS values can be seen to slightly overcut the others. This suggests that the earthquake produced more powerful but slower seismic waves that travelled across the surface of the Earth.
+
+Most earthquakes tend to be shallower and quite a number of these events also have higher magnitudes than those events with a larger depth.
+
+Logically speaking, shallower earthquakes are nearer to the earth’s surface and can have more intense impacts on the area. 
+Therefore, shallow earthquakes with larger magnitudes are bound to cause more damage. 
+
+It is important to keep in mind that the magnitude value and depth of the earthquake can collectively determine the severity of the potential impact.
+
+
+Conclusion
+========================================
+
+### Overview
+
+In conclusion, our analysis of earthquake events has provided valuable insights into the seismic activity in Turkey and its neighbouring countries. Through the static plots, interactive plots and gif animated plots, we have observed the frequency, spatial distribution and temporal trends of earthquakes in different locations, identified the trend of the earthquakes and average magnitude by year, and the correlation between frequency and average magnitude. Besides that, we were able to understand the nature of earthquake magnitudes by exploring and contrasting magnitude types in order to learn more about their features, variability and interconnections
+
+1. The trend of earthquake frequency is increasing over time.
+
+2. The trend of earthquake average magnitude and average depth is decreasing over time.
+
+3. There is a negative correlation in the magnitude-frequency relationship, where smaller earthquakes occur more frequently than larger ones.
+
+4. Akdeniz and Ege Denizi are the top two locations with the highest earthquake frequency.
+
+5. The tectonic plate boundaries and fault lines influenced the magnitude and frequency of earthquakes.
+
+6. The earthquake magnitudes are distributed lower for a few years after a big earthquake occurred.
+
+7. Different pairs of magnitude types show different correlation coefficient values as they capture different aspects of an earthquake's behaviour.
+
+8. Each month of the year shows a similar pattern of downward trend in magnitude values for each magnitude type. However, there are tremendous fluctuations starting around the 1980s, most probably due to evolving seismic network and monitoring practices. 
+
+9. Most earthquakes tend to be shallower and quite a number of these occurrences have higher magnitudes than those occurrences with a larger depth.
+
+Overall, the visualisations have deepened our understanding of earthquake occurrences. It is important to note that the advancement of modern technology continues to make the data collection process more accurate, thus improving decision making policies. Through this study, we found that it is important to be alert especially those who are in high-risk earthquake areas. Furthermore, the diverse visualisations presented by our group members have contributed to a comprehensive exploration of earthquake data, encompassing different perspectives and objectives.
+
